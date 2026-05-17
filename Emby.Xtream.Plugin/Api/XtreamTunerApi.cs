@@ -256,22 +256,31 @@ namespace Emby.Xtream.Plugin.Api
 
         public async Task<object> Get(GetLiveCategories request)
         {
-            var config = Plugin.Instance?.Configuration;
+            var instance = Plugin.InstanceOrNull;
+            var config = instance?.Configuration;
             if (config == null || string.IsNullOrEmpty(config.BaseUrl) ||
                 string.IsNullOrEmpty(config.Username) || string.IsNullOrEmpty(config.Password))
             {
                 return new List<Category>();
             }
 
-            var liveTvService = Plugin.Instance.LiveTvService;
-            var categories = await liveTvService.GetLiveCategoriesAsync(CancellationToken.None).ConfigureAwait(false);
+            try
+            {
+                var liveTvService = instance.LiveTvService;
+                var categories = await liveTvService.GetLiveCategoriesAsync(CancellationToken.None).ConfigureAwait(false);
 
-            // Cache for instant UI loading
-            config.CachedLiveCategories = System.Text.Json.JsonSerializer.Serialize(
-                    categories.Select(c => new { c.CategoryId, c.CategoryName }).ToList());
-            Plugin.Instance.SaveConfiguration();
+                // Cache for instant UI loading
+                config.CachedLiveCategories = System.Text.Json.JsonSerializer.Serialize(
+                        categories.Select(c => new { c.CategoryId, c.CategoryName }).ToList());
+                instance.SaveConfiguration();
 
-            return categories;
+                return categories;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn("Failed to fetch live TV categories: {0}", ex.Message);
+                return new List<Category>();
+            }
         }
 
         public async Task<object> Get(GetVodCategories request)

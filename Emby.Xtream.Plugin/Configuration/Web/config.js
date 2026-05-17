@@ -136,7 +136,7 @@ function (BaseView, loading) {
         });
 
         view.querySelector('.btnLoadCategories').addEventListener('click', function () {
-            loadCategories(self);
+            saveConfig(self, function () { loadCategories(self); });
         });
 
         view.querySelector('.btnSelectAllCategories').addEventListener('click', function () {
@@ -157,7 +157,7 @@ function (BaseView, loading) {
 
         // VOD category buttons (single mode)
         view.querySelector('.btnLoadVodCategories').addEventListener('click', function () {
-            loadVodCategories(self);
+            saveConfig(self, function () { loadVodCategories(self); });
         });
 
         view.querySelector('.btnSelectAllVodCategories').addEventListener('click', function () {
@@ -170,12 +170,12 @@ function (BaseView, loading) {
 
         // VOD category buttons (multi mode)
         view.querySelector('.btnLoadVodCategoriesMulti').addEventListener('click', function () {
-            loadVodCategoriesMulti(self);
+            saveConfig(self, function () { loadVodCategoriesMulti(self); });
         });
 
         // Series category buttons (single mode)
         view.querySelector('.btnLoadSeriesCategories').addEventListener('click', function () {
-            loadSeriesCategories(self);
+            saveConfig(self, function () { loadSeriesCategories(self); });
         });
 
         view.querySelector('.btnSelectAllSeriesCategories').addEventListener('click', function () {
@@ -188,7 +188,7 @@ function (BaseView, loading) {
 
         // Series category buttons (multi mode)
         view.querySelector('.btnLoadSeriesCategoriesMulti').addEventListener('click', function () {
-            loadSeriesCategoriesMulti(self);
+            saveConfig(self, function () { loadSeriesCategoriesMulti(self); });
         });
 
         // Sync buttons
@@ -538,7 +538,11 @@ function (BaseView, loading) {
             ApiClient.updatePluginConfiguration(pluginId, config).then(function () {
                 Dashboard.processPluginConfigurationUpdateResult();
                 applyScheduleToTasks(view, config, ApiClient);
+                loading.hide();
                 if (typeof callback === 'function') callback();
+            }).catch(function () {
+                loading.hide();
+                Dashboard.alert('Failed to save configuration.');
             });
         }).catch(function () {
             loading.hide();
@@ -1253,7 +1257,7 @@ function (BaseView, loading) {
             updateCategoryCountBadge(view, 'live');
         }).catch(function () {
             loadingEl.style.display = 'none';
-            listEl.innerHTML = '<div style="color:#cc0000;">Failed to load categories. Save your connection settings first, then try again.</div>';
+            listEl.innerHTML = '<div style="color:#cc0000;">Failed to load categories (dashboard request failed). Check that you are signed in as an administrator, then try again.</div>';
         });
     }
 
@@ -1322,7 +1326,7 @@ function (BaseView, loading) {
             updateCategoryCountBadge(view, 'vod');
         }).catch(function () {
             loadingEl.style.display = 'none';
-            listEl.innerHTML = '<div style="color:#cc0000;">Failed to load VOD categories. Save your connection settings first, then try again.</div>';
+            listEl.innerHTML = '<div style="color:#cc0000;">Failed to load VOD categories (dashboard request failed). Check that you are signed in as an administrator, then try again.</div>';
         });
     }
 
@@ -1358,7 +1362,7 @@ function (BaseView, loading) {
             statusEl.style.color = '#52B54B'; statusEl.style.opacity = '1';
             populateFolderCheckboxes(view, 'movie', categories);
         }).catch(function () {
-            statusEl.textContent = 'Failed to load categories. Save connection settings first.';
+            statusEl.textContent = 'Failed to load VOD categories (dashboard request failed).';
             statusEl.style.color = '#cc0000'; statusEl.style.opacity = '1';
         });
     }
@@ -1443,7 +1447,7 @@ function (BaseView, loading) {
             updateCategoryCountBadge(view, 'series');
         }).catch(function () {
             loadingEl.style.display = 'none';
-            listEl.innerHTML = '<div style="color:#cc0000;">Failed to load series categories. Save your connection settings first, then try again.</div>';
+            listEl.innerHTML = '<div style="color:#cc0000;">Failed to load series categories (dashboard request failed). Check that you are signed in as an administrator, then try again.</div>';
         });
     }
 
@@ -1479,7 +1483,7 @@ function (BaseView, loading) {
             statusEl.style.color = '#52B54B'; statusEl.style.opacity = '1';
             populateFolderCheckboxes(view, 'series', categories);
         }).catch(function () {
-            statusEl.textContent = 'Failed to load categories. Save connection settings first.';
+            statusEl.textContent = 'Failed to load series categories (dashboard request failed).';
             statusEl.style.color = '#cc0000'; statusEl.style.opacity = '1';
         });
     }
