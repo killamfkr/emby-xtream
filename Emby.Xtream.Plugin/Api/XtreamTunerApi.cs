@@ -256,20 +256,37 @@ namespace Emby.Xtream.Plugin.Api
 
         public async Task<object> Get(GetLiveCategories request)
         {
-            var config = Plugin.Instance?.Configuration;
+            var instance = Plugin.InstanceOrNull;
+            var config = instance?.Configuration;
             if (config == null || string.IsNullOrEmpty(config.BaseUrl) ||
                 string.IsNullOrEmpty(config.Username) || string.IsNullOrEmpty(config.Password))
             {
                 return new List<Category>();
             }
 
-            var liveTvService = Plugin.Instance.LiveTvService;
-            var categories = await liveTvService.GetLiveCategoriesAsync(CancellationToken.None).ConfigureAwait(false);
+            List<Category> categories;
+            try
+            {
+                var liveTvService = instance.LiveTvService;
+                categories = await liveTvService.GetLiveCategoriesAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn("Failed to fetch live TV categories from Xtream: {0}", ex.Message);
+                return new List<Category>();
+            }
 
-            // Cache for instant UI loading
-            config.CachedLiveCategories = System.Text.Json.JsonSerializer.Serialize(
+            // Cache for instant UI loading — must not fail the HTTP response if disk save fails
+            try
+            {
+                config.CachedLiveCategories = System.Text.Json.JsonSerializer.Serialize(
                     categories.Select(c => new { c.CategoryId, c.CategoryName }).ToList());
-            Plugin.Instance.SaveConfiguration();
+                instance.SaveConfiguration();
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn("Failed to persist cached live TV categories (list still returned): {0}", ex.Message);
+            }
 
             return categories;
         }
@@ -301,10 +318,16 @@ namespace Emby.Xtream.Plugin.Api
                         }) ?? new List<Category>();
                     var sorted = categories.OrderBy(c => c.CategoryName).ToList();
 
-                    // Cache for instant UI loading
-                    config.CachedVodCategories = System.Text.Json.JsonSerializer.Serialize(
-                        sorted.Select(c => new { c.CategoryId, c.CategoryName }).ToList());
-                    Plugin.Instance.SaveConfiguration();
+                    try
+                    {
+                        config.CachedVodCategories = System.Text.Json.JsonSerializer.Serialize(
+                            sorted.Select(c => new { c.CategoryId, c.CategoryName }).ToList());
+                        Plugin.Instance.SaveConfiguration();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn("Failed to persist cached VOD categories (list still returned): {0}", ex.Message);
+                    }
 
                     return sorted;
                 }
@@ -369,10 +392,16 @@ namespace Emby.Xtream.Plugin.Api
                             .ToList();
                     }
 
-                    // Cache for instant UI loading
-                    config.CachedSeriesCategories = System.Text.Json.JsonSerializer.Serialize(
-                        sorted.Select(c => new { c.CategoryId, c.CategoryName }).ToList());
-                    Plugin.Instance.SaveConfiguration();
+                    try
+                    {
+                        config.CachedSeriesCategories = System.Text.Json.JsonSerializer.Serialize(
+                            sorted.Select(c => new { c.CategoryId, c.CategoryName }).ToList());
+                        Plugin.Instance.SaveConfiguration();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn("Failed to persist cached series categories (list still returned): {0}", ex.Message);
+                    }
 
                     return sorted;
                 }

@@ -136,7 +136,7 @@ function (BaseView, loading) {
         });
 
         view.querySelector('.btnLoadCategories').addEventListener('click', function () {
-            loadCategories(self);
+            saveConfig(self, function () { loadCategories(self); });
         });
 
         view.querySelector('.btnSelectAllCategories').addEventListener('click', function () {
@@ -157,7 +157,7 @@ function (BaseView, loading) {
 
         // VOD category buttons (single mode)
         view.querySelector('.btnLoadVodCategories').addEventListener('click', function () {
-            loadVodCategories(self);
+            saveConfig(self, function () { loadVodCategories(self); });
         });
 
         view.querySelector('.btnSelectAllVodCategories').addEventListener('click', function () {
@@ -170,12 +170,12 @@ function (BaseView, loading) {
 
         // VOD category buttons (multi mode)
         view.querySelector('.btnLoadVodCategoriesMulti').addEventListener('click', function () {
-            loadVodCategoriesMulti(self);
+            saveConfig(self, function () { loadVodCategoriesMulti(self); });
         });
 
         // Series category buttons (single mode)
         view.querySelector('.btnLoadSeriesCategories').addEventListener('click', function () {
-            loadSeriesCategories(self);
+            saveConfig(self, function () { loadSeriesCategories(self); });
         });
 
         view.querySelector('.btnSelectAllSeriesCategories').addEventListener('click', function () {
@@ -188,7 +188,7 @@ function (BaseView, loading) {
 
         // Series category buttons (multi mode)
         view.querySelector('.btnLoadSeriesCategoriesMulti').addEventListener('click', function () {
-            loadSeriesCategoriesMulti(self);
+            saveConfig(self, function () { loadSeriesCategoriesMulti(self); });
         });
 
         // Sync buttons
@@ -538,7 +538,11 @@ function (BaseView, loading) {
             ApiClient.updatePluginConfiguration(pluginId, config).then(function () {
                 Dashboard.processPluginConfigurationUpdateResult();
                 applyScheduleToTasks(view, config, ApiClient);
+                loading.hide();
                 if (typeof callback === 'function') callback();
+            }).catch(function () {
+                loading.hide();
+                Dashboard.alert('Failed to save configuration.');
             });
         }).catch(function () {
             loading.hide();
@@ -1251,9 +1255,10 @@ function (BaseView, loading) {
             view.querySelector('.btnSelectAllCategories').disabled = false;
             view.querySelector('.btnDeselectAllCategories').disabled = false;
             updateCategoryCountBadge(view, 'live');
-        }).catch(function () {
+        }).catch(function (err) {
             loadingEl.style.display = 'none';
-            listEl.innerHTML = '<div style="color:#cc0000;">Failed to load categories. Save your connection settings first, then try again.</div>';
+            console.error('Xtream: failed to load live TV categories', err);
+            listEl.innerHTML = '<div style="color:#cc0000;">Failed to load categories from the server. If you just changed URL or credentials, use Refresh Categories again (it saves first). Otherwise check the browser console and Emby server logs.</div>';
         });
     }
 

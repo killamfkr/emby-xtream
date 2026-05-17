@@ -139,18 +139,26 @@ namespace Emby.Xtream.Plugin.Service
         /// </summary>
         public async Task<List<Category>> GetLiveCategoriesAsync(CancellationToken cancellationToken)
         {
-            var config = Plugin.Instance.Configuration;
-            var url = string.Format(
-                CultureInfo.InvariantCulture,
-                "{0}/player_api.php?username={1}&password={2}&action=get_live_categories",
-                config.BaseUrl, Uri.EscapeDataString(config.Username ?? string.Empty), Uri.EscapeDataString(config.Password ?? string.Empty));
-
-            using (var httpClient = Plugin.CreateHttpClient())
+            try
             {
-                var json = await httpClient.GetStringAsync(url).ConfigureAwait(false);
-                var categories = STJ.JsonSerializer.Deserialize<List<Category>>(json, JsonOptions)
-                    ?? new List<Category>();
-                return categories.OrderBy(c => c.CategoryName).ToList();
+                var config = Plugin.Instance.Configuration;
+                var url = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0}/player_api.php?username={1}&password={2}&action=get_live_categories",
+                    config.BaseUrl, Uri.EscapeDataString(config.Username ?? string.Empty), Uri.EscapeDataString(config.Password ?? string.Empty));
+
+                using (var httpClient = Plugin.CreateHttpClient())
+                {
+                    var json = await httpClient.GetStringAsync(url).ConfigureAwait(false);
+                    var categories = STJ.JsonSerializer.Deserialize<List<Category>>(json, JsonOptions)
+                        ?? new List<Category>();
+                    return categories.OrderBy(c => c.CategoryName).ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn("Failed to fetch live TV categories from Xtream: {0}", ex.Message);
+                return new List<Category>();
             }
         }
 
