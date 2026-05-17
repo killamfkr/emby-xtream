@@ -1,0 +1,43 @@
+name: Build plugin DLL
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plugin-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Test
+        run: dotnet test Emby.Xtream.Plugin.Tests/Emby.Xtream.Plugin.Tests.csproj -c Release -v minimal
+
+      - name: Publish plugin
+        run: |
+          VERSION=0.0.0-ci.${{ github.run_number }}+${GITHUB_SHA:0:7}
+          cd Emby.Xtream.Plugin
+          dotnet publish -c Release -o out --no-self-contained -p:Version="$VERSION"
+
+      - name: Upload DLL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Emby.Xtream.Plugin-${{ github.run_id }}
+          path: Emby.Xtream.Plugin/out/Emby.Xtream.Plugin.dll
+          if-no-files-found: error
