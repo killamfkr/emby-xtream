@@ -75,26 +75,89 @@ async function populateCameras() {
   }
 }
 
+function cameraHintForError(err) {
+  const name = err && err.name;
+  if (typeof location !== "undefined" && !window.isSecureContext) {
+    return " Open this app over https:// or http://localhost — insecure http pages cannot use the camera on most phones.";
+  }
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    return " Allow camera permission for this site in browser settings.";
+  }
+  if (name === "OverconstrainedError" || name === "ConstraintNotSatisfiedError") {
+    return " Try another camera in the list, or leave the default camera selected.";
+  }
+  return "";
+}
+
 async function startCamera() {
   stopBarcodeScan();
   if (mediaStream) {
     mediaStream.getTracks().forEach((t) => t.stop());
     mediaStream = null;
   }
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    setCamStatus("Camera not supported in this browser or WebView.", "error");
+    $("btnScanBarcode").disabled = true;
+    $("btnOcrDate").disabled = true;
+    return;
+  }
+
+  if (!window.isSecureContext) {
+    setCamStatus(
+      "Camera needs a secure page (https:// or http://localhost). This URL is not a secure context.",
+      "error"
+    );
+    $("btnScanBarcode").disabled = true;
+    $("btnOcrDate").disabled = true;
+    return;
+  }
+
   const deviceId = cameraSelect.value || undefined;
-  const constraints = {
-    video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "environment" },
-    audio: false,
-  };
+
+  const attempts = [];
+  if (deviceId) {
+    attempts.push({ video: { deviceId: { ideal: deviceId } }, audio: false });
+    attempts.push({ video: { deviceId: { exact: deviceId } }, audio: false });
+  }
+  attempts.push({ video: { facingMode: { ideal: "environment" } }, audio: false });
+  attempts.push({ video: { facingMode: { ideal: "user" } }, audio: false });
+  attempts.push({ video: true, audio: false });
+
+  let lastErr = null;
+  for (const constraints of attempts) {
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      lastErr = null;
+      break;
+    } catch (e) {
+      lastErr = e;
+      if (e.name === "NotAllowedError" || e.name === "PermissionDeniedError") {
+        break;
+      }
+      if (e.name === "OverconstrainedError" || e.name === "ConstraintNotSatisfiedError") {
+        continue;
+      }
+      break;
+    }
+  }
+
+  if (!mediaStream) {
+    const base = lastErr ? lastErr.message || String(lastErr) : "Unknown error";
+    setCamStatus("Camera failed: " + base + cameraHintForError(lastErr), "error");
+    $("btnScanBarcode").disabled = true;
+    $("btnOcrDate").disabled = true;
+    return;
+  }
+
   try {
-    mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
     previewVideo.srcObject = mediaStream;
     await previewVideo.play();
     setCamStatus("Camera on.", "ok");
     $("btnScanBarcode").disabled = false;
     $("btnOcrDate").disabled = false;
   } catch (e) {
-    setCamStatus("Camera failed: " + (e.message || String(e)) + " (HTTPS required on phones.)", "error");
+    setCamStatus("Camera preview failed: " + (e.message || String(e)), "error");
     $("btnScanBarcode").disabled = true;
     $("btnOcrDate").disabled = true;
   }

@@ -82,6 +82,11 @@ If your **RESTORE BACKUP** screen expects different names, rename columns in a s
 - **OCR**: [Tesseract.js](https://github.com/naptha/tesseract.js) v5 via esm.sh. Sticker fonts, foil, and glare affect accuracy; always verify dates.
 - **Privacy**: Video is processed locally in the tab; nothing is uploaded unless you use a separate service yourself. CSV download is a normal file save from your browser.
 
+## Troubleshooting (camera)
+
+- **`OverconstrainedError`** almost always means **video constraints** could not be met (for example, “rear camera only” on a device with no back camera, or a stale camera id after unplugging a USB webcam). The app now relaxes constraints automatically; if it still fails, pick a different **Camera** in the dropdown or reload the page.
+- **HTTPS / secure context**: Mobile browsers (and the Android WebView) only expose `getUserMedia` on **https://** or **http://localhost**. Plain `http://192.168.x.x` is often blocked. The old message that blamed every failure on HTTPS was misleading for `OverconstrainedError`.
+
 ## Limitations
 
 - Not every tin uses a standard barcode; some use only internal batch codes — use notes and manual fields.
