@@ -84,6 +84,7 @@ If your **RESTORE BACKUP** screen expects different names, rename columns in a s
 
 ## Troubleshooting (camera)
 
+- **Wrong camera / scan never fires:** the barcode reader now decodes from the **same `<video>` preview** as “Start camera”. Earlier builds called `decodeFromVideoDevice`, which opened a **second** camera (often the rear) while the preview stayed on the front.
 - **`OverconstrainedError`** almost always means **video constraints** could not be met (for example, “rear camera only” on a device with no back camera, or a stale camera id after unplugging a USB webcam). The app now relaxes constraints automatically; if it still fails, pick a different **Camera** in the dropdown or reload the page.
 - **HTTPS / secure context**: Mobile browsers (and the Android WebView) only expose `getUserMedia` on **https://** or **http://localhost**. Plain `http://192.168.x.x` is often blocked. The old message that blamed every failure on HTTPS was misleading for `OverconstrainedError`.
 

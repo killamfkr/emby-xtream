@@ -53,25 +53,67 @@ function setCamStatus(msg, kind) {
   if (kind === "ok") camStatus.classList.add("ok");
 }
 
-async function populateCameras() {
+/** Prefer rear / “environment” cameras in the dropdown (labels appear after permission). */
+function sortVideoInputs(devices) {
+  const copy = [...devices];
+  const score = (d) => {
+    const l = (d.label || "").toLowerCase();
+    if (
+      /\b(back|rear|world|environment|wide|ultra|telephoto)\b/.test(l) ||
+      l.includes("facing back")
+    ) {
+      return 0;
+    }
+    if (/\b(front|user|selfie|face|iris)\b/.test(l) || l.includes("facing front")) {
+      return 2;
+    }
+    return 1;
+  };
+  copy.sort((a, b) => score(a) - score(b) || (a.label || "").localeCompare(b.label || ""));
+  return copy;
+}
+
+function fillCameraSelect(devices) {
   cameraSelect.innerHTML = "";
+  if (!devices.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No camera found";
+    cameraSelect.appendChild(opt);
+    return;
+  }
+  devices.forEach((d, i) => {
+    const opt = document.createElement("option");
+    opt.value = d.deviceId;
+    opt.textContent = d.label || `Camera ${i + 1}`;
+    cameraSelect.appendChild(opt);
+  });
+}
+
+async function populateCameras() {
   try {
     const devices = await BrowserMultiFormatReader.listVideoInputDevices();
-    if (!devices.length) {
-      const opt = document.createElement("option");
-      opt.value = "";
-      opt.textContent = "No camera found";
-      cameraSelect.appendChild(opt);
-      return;
-    }
-    devices.forEach((d, i) => {
-      const opt = document.createElement("option");
-      opt.value = d.deviceId;
-      opt.textContent = d.label || `Camera ${i + 1}`;
-      cameraSelect.appendChild(opt);
-    });
+    fillCameraSelect(sortVideoInputs(devices));
   } catch (e) {
     setCamStatus("Could not list cameras: " + (e.message || String(e)), "error");
+  }
+}
+
+/** After the stream is running, labels are available — rebuild list and match the active lens. */
+async function syncCameraDropdownToStream() {
+  const track = mediaStream?.getVideoTracks?.()?.[0];
+  if (!track) return;
+  const currentId = track.getSettings?.()?.deviceId;
+  try {
+    const devices = await BrowserMultiFormatReader.listVideoInputDevices();
+    if (!devices.length) return;
+    const sorted = sortVideoInputs(devices);
+    fillCameraSelect(sorted);
+    if (currentId && [...cameraSelect.options].some((o) => o.value === currentId)) {
+      cameraSelect.value = currentId;
+    }
+  } catch {
+    /* keep existing dropdown */
   }
 }
 
@@ -153,6 +195,7 @@ async function startCamera() {
   try {
     previewVideo.srcObject = mediaStream;
     await previewVideo.play();
+    await syncCameraDropdownToStream();
     setCamStatus("Camera on.", "ok");
     $("btnScanBarcode").disabled = false;
     $("btnOcrDate").disabled = false;
@@ -191,28 +234,44 @@ function stopBarcodeScan() {
 }
 
 function startBarcodeScan() {
-  if (!mediaStream) return;
+  if (!mediaStream) {
+    setCamStatus("Start the camera first.", "error");
+    return;
+  }
+  if (previewVideo.readyState < 2) {
+    setCamStatus("Wait for the preview to start, then try scanning again.", "error");
+    return;
+  }
+
   stopBarcodeScan();
-  barcodeReader = new BrowserMultiFormatReader();
+  barcodeReader = new BrowserMultiFormatReader({
+    tryPlayVideoTimeout: 9000,
+    delayBetweenScanAttempts: 75,
+  });
   barcodeScanning = true;
   videoWrap.classList.add("scanning");
   $("btnStopBarcode").disabled = false;
   $("btnScanBarcode").disabled = true;
 
-  const deviceId = cameraSelect.value || undefined;
-  const videoId = previewVideo.id;
-
-  barcodeReader.decodeFromVideoDevice(deviceId, videoId, (result, err) => {
-    if (!barcodeScanning) return;
-    if (result) {
-      const text = result.getText();
-      fieldBarcode.value = text.replace(/\s/g, "");
-      setCamStatus("Barcode read: " + text, "ok");
+  // decodeFromVideoDevice opens a *second* getUserMedia stream (often “wrong” vs preview).
+  // decodeFromVideoElement scans the same stream already shown in #previewVideo.
+  barcodeReader
+    .decodeFromVideoElement(previewVideo, (result, err) => {
+      if (!barcodeScanning) return;
+      if (result) {
+        const text = result.getText();
+        fieldBarcode.value = text.replace(/\s/g, "");
+        setCamStatus("Barcode read: " + text, "ok");
+        stopBarcodeScan();
+        $("btnScanBarcode").disabled = false;
+      }
+    })
+    .catch((e) => {
+      if (!barcodeScanning) return;
+      setCamStatus("Scanner failed: " + (e?.message || String(e)), "error");
       stopBarcodeScan();
       $("btnScanBarcode").disabled = false;
-    }
-    /* ignore NotFoundException noise */
-  });
+    });
 }
 
 /**
