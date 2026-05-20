@@ -3,82 +3,94 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#b8860b" />
+    <meta name="theme-color" content="#0a0907" />
     <meta
       name="description"
-      content="Scan pipe tobacco tin barcodes and date stickers, build a cellar list, export CSV for Tobacco Cellar and spreadsheets."
+      content="Pipe tobacco tin scanner — UPC/EAN, date sticker OCR, cellar list and CSV export. Camera-first intake inspired by modern cellar apps."
     />
-    <title>Cellar Scanner — pipe tobacco tins</title>
+    <title>Cellar Scanner — tin intake</title>
     <link rel="manifest" href="manifest.json" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;1,9..40,400&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="css/styles.css" />
   </head>
   <body>
-    <header>
-      <h1>Cellar Scanner</h1>
-      <p>
-        Camera barcode read and date-sticker OCR, then export CSV for
-        <a href="http://www.tobaccocellar.com/" rel="noopener">Tobacco Cellar</a>
-        or any spreadsheet.
+    <header class="site-header">
+      <div class="site-header__brand">
+        <h1>Cellar Scanner</h1>
+        <p class="site-header__tag">Tin intake · camera-first cellar logging</p>
+      </div>
+      <p class="site-header__lede">
+        Scan a <strong>UPC/EAN</strong>, read a <strong>date sticker</strong>, then export CSV for
+        <a href="http://www.tobaccocellar.com/" rel="noopener">Tobacco Cellar</a> or any sheet. UI is tuned like modern
+        pipe apps (e.g. <a href="https://thepiper.ambivrt.com/" rel="noopener">ThePiper</a>) — this project is
+        <strong>not affiliated</strong>; it only borrows the “open camera, grab a tin” flow.
       </p>
     </header>
 
     <main>
-      <section class="panel" aria-labelledby="cam-heading">
-        <h2 id="cam-heading">Camera</h2>
-        <div id="videoWrap">
-          <video id="previewVideo" playsinline muted></video>
-        </div>
-        <div class="row">
-          <label class="sr-only" for="cameraSelect">Camera</label>
-          <select id="cameraSelect" aria-label="Choose camera"></select>
-          <button type="button" id="btnStartCam" class="primary">Start camera</button>
-          <button type="button" id="btnStopCam">Stop camera</button>
-        </div>
+      <section class="panel hero-panel" aria-labelledby="scan-heading">
+        <h2 id="scan-heading" class="font-serif">Scan a tin</h2>
+        <p class="lede">
+          Opens a <strong>fullscreen viewfinder</strong> on your phone. We use the browser’s
+          <strong>native barcode engine</strong> when available (fast on Chrome/Android), then fall back to ZXing on other
+          browsers.
+        </p>
+        <button type="button" id="btnOpenScanner" class="btn-hero primary" disabled>Open tin scanner</button>
         <p id="camStatus" class="status" role="status"></p>
+
+        <div id="videoShell" class="video-shell">
+          <div id="videoWrap">
+            <video id="previewVideo" playsinline muted></video>
+          </div>
+          <div class="camera-toolbar">
+            <label class="sr-only" for="cameraSelect">Camera</label>
+            <select id="cameraSelect" aria-label="Choose camera"></select>
+            <button type="button" id="btnStartCam" class="primary">Start preview</button>
+            <button type="button" id="btnStopCam">Stop preview</button>
+          </div>
+        </div>
+
+        <div class="inline-actions">
+          <button type="button" id="btnScanBarcode" class="primary" disabled>Scan barcode (inline)</button>
+          <button type="button" id="btnStopBarcode" disabled>Stop scanning</button>
+        </div>
       </section>
 
       <section class="panel" aria-labelledby="barcode-heading">
-        <h2 id="barcode-heading">Tin barcode (UPC / EAN)</h2>
-        <p style="margin: 0 0 0.5rem; font-size: 0.875rem; color: var(--muted)">
-          Pick the <strong>rear</strong> camera in the list when you can (often labeled “back” or “environment”). Scanning reads the
-          <strong>same live preview</strong> as above — align the barcode in the gold frame, hold steady, and tap Scan barcode. Many tins use a standard UPC/EAN on the bottom or side.
-        </p>
-        <div class="row">
-          <button type="button" id="btnScanBarcode" class="primary" disabled>Scan barcode</button>
-          <button type="button" id="btnStopBarcode" disabled>Stop scanning</button>
-        </div>
-        <label for="fieldBarcode">Barcode (editable)</label>
+        <h2 id="barcode-heading" class="font-serif">Barcode &amp; lookup</h2>
+        <label for="fieldBarcode">Digits (editable)</label>
         <input type="text" id="fieldBarcode" inputmode="numeric" autocomplete="off" placeholder="e.g. 0634158091234" />
         <div class="row" style="margin-top: 0.5rem">
           <button type="button" id="btnLookupUpc">Fill blend from UPC</button>
         </div>
-        <p style="margin: 0.6rem 0 0; font-size: 0.8rem; color: var(--muted)">
-          After a scan, we query <strong>Open Food Facts</strong> (free, global grocery database) to pre-fill empty brand / blend / size when a match exists. Many pipe tins are missing there — you can still edit everything and use “Fill blend from UPC” if you typed a code by hand.
+        <p class="fineprint">
+          After a read we query <strong>Open Food Facts</strong> to pre-fill empty brand / blend / size when a grocery
+          listing exists — many pipe tins are missing; verify or edit.
         </p>
       </section>
 
       <section class="panel" aria-labelledby="date-heading">
-        <h2 id="date-heading">Manufacture / date sticker</h2>
-        <p style="margin: 0 0 0.5rem; font-size: 0.875rem; color: var(--muted)">
-          Frame the printed date or batch sticker, then capture. OCR is best in good light; tap a suggested date or type your own.
+        <h2 id="date-heading" class="font-serif">Manufacture / date sticker</h2>
+        <p class="lede">
+          Frame the printed date or batch sticker, then capture. OCR likes bright, even light; tap a suggestion or type
+          your own.
         </p>
         <div class="row">
           <button type="button" id="btnOcrDate" class="primary" disabled>Capture &amp; read sticker</button>
         </div>
         <div id="ocrProgress" class="status" aria-live="polite"></div>
         <div id="dateCandidates" class="candidates" aria-label="Detected date strings"></div>
-        <label for="fieldMfgDate">Manufacture / tin date (ISO yyyy-mm-dd or any label you use)</label>
+        <label for="fieldMfgDate">Manufacture / tin date</label>
         <input type="text" id="fieldMfgDate" autocomplete="off" placeholder="e.g. 2024-03-15 or Mar 2024" />
       </section>
 
       <section class="panel" aria-labelledby="blend-heading">
-        <h2 id="blend-heading">Blend details</h2>
+        <h2 id="blend-heading" class="font-serif">Blend details</h2>
         <div class="grid two">
           <div>
             <label for="fieldBrand">Brand</label>
@@ -106,7 +118,7 @@
       </section>
 
       <section class="panel" aria-labelledby="list-heading">
-        <h2 id="list-heading">Cellar list</h2>
+        <h2 id="list-heading" class="font-serif">Cellar list</h2>
         <div class="row" style="margin-bottom: 0.75rem">
           <button type="button" id="btnExportCsv" class="primary">Download CSV</button>
           <button type="button" id="btnClearAll" class="danger">Remove all rows</button>
@@ -130,9 +142,17 @@
       </section>
     </main>
 
-    <footer>
-      Runs in your browser; camera frames stay on-device until you export CSV. ZXing and Tesseract load from a CDN on first use.
-      See <code>README.md</code> in this folder. Companion:
+    <div id="scanHud" class="scan-hud" hidden>
+      <div class="scan-hud__bar">
+        <button type="button" id="btnScanClose" class="hud-btn">Close</button>
+        <p class="scan-hud__hint">Align the <strong>UPC/EAN</strong> inside the corners — hold steady.</p>
+        <button type="button" id="btnTorch" class="hud-btn" hidden>Light</button>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      Camera frames stay on-device until you export CSV. Native scanner when supported; otherwise ZXing. Tesseract loads
+      from a CDN. See <code>README.md</code> ·
       <a href="https://github.com/killamfkr/Cellar-loader" rel="noopener">Cellar-loader</a>
     </footer>
 

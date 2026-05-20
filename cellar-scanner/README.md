@@ -52,7 +52,7 @@ Release builds for Play Store need your own signing key and store listing; this 
 ## Workflow
 
 1. **Start camera** — pick the rear camera on a phone if multiple devices appear.
-2. **Scan barcode** — align the tin’s barcode with the on-screen frame; the value fills the barcode field (you can edit it).
+2. **Scan barcode** — tap **Open tin scanner** for a fullscreen viewfinder (similar flow to apps like [ThePiper](https://thepiper.ambivrt.com/)), or use **Scan barcode (inline)** inside the page. Align the tin’s UPC/EAN; the value fills the barcode field (you can edit it). On Chrome/Android the page uses the **native** `BarcodeDetector` when available, then automatically tries **ZXing** on the same preview if nothing is read within a few seconds or the native engine is unavailable.
 3. **Capture & read sticker** — center the printed date or batch code; OCR suggests likely dates; tap one or type your own.
 4. Enter **brand**, **blend**, **quantity**, optional **tin size** and **notes**.
 5. **Add to cellar list** — repeat for more tins.
@@ -82,7 +82,7 @@ After a successful barcode read (or when you tap **Fill blend from UPC**), the a
 
 ## Technical notes
 
-- **Barcode**: [@zxing/browser](https://github.com/zxing-js/library) via [esm.sh](https://esm.sh) (network required on first load).
+- **Barcode**: when the browser exposes **`BarcodeDetector`** (common on Chromium/Android), scanning runs on that API first for speed; after a short timeout with no decode, the app falls back to [@zxing/browser](https://github.com/zxing-js/library) on the **same** `<video>` element via [esm.sh](https://esm.sh) (network required on first load). If `BarcodeDetector` is missing, ZXing is used immediately.
 - **OCR**: [Tesseract.js](https://github.com/naptha/tesseract.js) v5 via esm.sh. Sticker fonts, foil, and glare affect accuracy; always verify dates.
 - **Privacy**: Video is processed locally in the tab; nothing is uploaded unless you use a separate service yourself. CSV download is a normal file save from your browser.
 

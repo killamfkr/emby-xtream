@@ -24,6 +24,8 @@ const emptyHint = $("emptyHint");
 const ocrProgress = $("ocrProgress");
 const dateCandidates = $("dateCandidates");
 
+let torchOn = false;
+
 let mediaStream = null;
 let barcodeReader = null;
 let barcodeScanning = false;
@@ -140,7 +142,7 @@ async function startCamera() {
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     setCamStatus("Camera not supported in this browser or WebView.", "error");
-    $("btnScanBarcode").disabled = true;
+    refreshCaptureButtons();
     $("btnOcrDate").disabled = true;
     return;
   }
@@ -150,7 +152,7 @@ async function startCamera() {
       "Camera needs a secure page (https:// or http://localhost). This URL is not a secure context.",
       "error"
     );
-    $("btnScanBarcode").disabled = true;
+    refreshCaptureButtons();
     $("btnOcrDate").disabled = true;
     return;
   }
@@ -187,7 +189,7 @@ async function startCamera() {
   if (!mediaStream) {
     const base = lastErr ? lastErr.message || String(lastErr) : "Unknown error";
     setCamStatus("Camera failed: " + base + cameraHintForError(lastErr), "error");
-    $("btnScanBarcode").disabled = true;
+    refreshCaptureButtons();
     $("btnOcrDate").disabled = true;
     return;
   }
@@ -197,11 +199,11 @@ async function startCamera() {
     await previewVideo.play();
     await syncCameraDropdownToStream();
     setCamStatus("Camera on.", "ok");
-    $("btnScanBarcode").disabled = false;
+    refreshCaptureButtons();
     $("btnOcrDate").disabled = false;
   } catch (e) {
     setCamStatus("Camera preview failed: " + (e.message || String(e)), "error");
-    $("btnScanBarcode").disabled = true;
+    refreshCaptureButtons();
     $("btnOcrDate").disabled = true;
   }
 }
@@ -214,8 +216,56 @@ function stopCamera() {
   }
   previewVideo.srcObject = null;
   setCamStatus("Camera stopped.");
-  $("btnScanBarcode").disabled = true;
+  refreshCaptureButtons();
   $("btnOcrDate").disabled = true;
+}
+
+function setScanHudVisible(visible) {
+  const hud = $("scanHud");
+  if (!hud) return;
+  if (visible) hud.removeAttribute("hidden");
+  else hud.setAttribute("hidden", "");
+}
+
+function closeScannerShell() {
+  document.body.classList.remove("scanner-focus");
+  setScanHudVisible(false);
+  if (torchOn) {
+    torchOn = false;
+    applyTorch(false);
+  }
+}
+
+function applyTorch(on) {
+  const track = mediaStream?.getVideoTracks?.()?.[0];
+  if (!track?.applyConstraints) return;
+  try {
+    track.applyConstraints({ advanced: [{ torch: !!on }] });
+  } catch {
+    /* ignore */
+  }
+}
+
+function refreshTorchButton() {
+  const btn = $("btnTorch");
+  if (!btn) return;
+  const track = mediaStream?.getVideoTracks?.()?.[0];
+  const caps = track?.getCapabilities?.();
+  const supported =
+    !!caps &&
+    (caps.torch === true ||
+      (Array.isArray(caps.fillLightMode) && caps.fillLightMode.some((m) => /flash|torch/i.test(String(m)))));
+  btn.hidden = !supported;
+  btn.textContent = torchOn ? "Light off" : "Light";
+}
+
+function refreshCaptureButtons() {
+  const ready = !!mediaStream;
+  const openBtn = $("btnOpenScanner");
+  if (openBtn) openBtn.disabled = !ready;
+  $("btnScanBarcode").disabled = !ready;
+  $("btnOcrDate").disabled = !ready;
+  $("btnStopBarcode").disabled = true;
 }
 
 function stopBarcodeScan() {
@@ -229,8 +279,8 @@ function stopBarcodeScan() {
     }
     barcodeReader = null;
   }
-  $("btnScanBarcode").disabled = !mediaStream;
-  $("btnStopBarcode").disabled = true;
+  closeScannerShell();
+  refreshCaptureButtons();
 }
 
 /** In-memory cache for Open Food Facts responses (GTIN → product or null). */
@@ -311,7 +361,89 @@ async function applyBarcodeLookup(barcode) {
   }
 }
 
-function startBarcodeScan() {
+function onBarcodeScanned(raw) {
+  const digits = String(raw || "").replace(/\s/g, "");
+  if (!digits) return;
+  fieldBarcode.value = digits;
+  stopBarcodeScan();
+  refreshCaptureButtons();
+  setCamStatus("Barcode read: " + digits + " — looking up…", "ok");
+  try {
+    navigator.vibrate?.(35);
+  } catch {
+    /* ignore */
+  }
+  void applyBarcodeLookup(digits);
+}
+
+async function runNativeBarcodeLoop() {
+  if (typeof BarcodeDetector === "undefined") {
+    return { ranNative: false, found: false, userStopped: false };
+  }
+  let supported;
+  try {
+    supported = await BarcodeDetector.getSupportedFormats();
+  } catch {
+    return { ranNative: false, found: false, userStopped: false };
+  }
+  const want = ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code"];
+  const formats = want.filter((f) => supported.includes(f));
+  if (!formats.length) {
+    return { ranNative: false, found: false, userStopped: false };
+  }
+  let detector;
+  try {
+    detector = new BarcodeDetector({ formats });
+  } catch {
+    return { ranNative: false, found: false, userStopped: false };
+  }
+
+  setCamStatus("Native scanner — keep the barcode inside the corners.", "ok");
+  const nativeStarted = Date.now();
+  const nativeTimeoutMs = 4500;
+  while (barcodeScanning) {
+    try {
+      if (previewVideo.readyState >= 2 && previewVideo.videoWidth > 0) {
+        const codes = await detector.detect(previewVideo);
+        if (codes && codes.length) {
+          const raw = codes[0].rawValue || codes[0].value || "";
+          if (raw) {
+            onBarcodeScanned(raw);
+            return { ranNative: true, found: true, userStopped: false };
+          }
+        }
+      }
+    } catch {
+      /* ignore per-frame */
+    }
+    if (Date.now() - nativeStarted >= nativeTimeoutMs) {
+      return { ranNative: true, found: false, userStopped: false };
+    }
+    await new Promise((r) => requestAnimationFrame(r));
+  }
+  return { ranNative: true, found: false, userStopped: true };
+}
+
+function startZxingBarcodeScan() {
+  barcodeReader = new BrowserMultiFormatReader(undefined, {
+    tryPlayVideoTimeout: 9000,
+    delayBetweenScanAttempts: 75,
+  });
+  barcodeReader
+    .decodeFromVideoElement(previewVideo, (result) => {
+      if (!barcodeScanning) return;
+      if (result) {
+        onBarcodeScanned(result.getText());
+      }
+    })
+    .catch((e) => {
+      if (!barcodeScanning) return;
+      setCamStatus("Scanner failed: " + (e?.message || String(e)), "error");
+      stopBarcodeScan();
+    });
+}
+
+async function startBarcodeEngine({ useFullscreen = false } = {}) {
   if (!mediaStream) {
     setCamStatus("Start the camera first.", "error");
     return;
@@ -322,38 +454,49 @@ function startBarcodeScan() {
   }
 
   stopBarcodeScan();
-  // Constructor signature is (hintsMap, options) — do not pass options as the first argument.
-  barcodeReader = new BrowserMultiFormatReader(undefined, {
-    tryPlayVideoTimeout: 9000,
-    delayBetweenScanAttempts: 75,
-  });
   barcodeScanning = true;
   videoWrap.classList.add("scanning");
   $("btnStopBarcode").disabled = false;
   $("btnScanBarcode").disabled = true;
-  setCamStatus("Scanning… hold the barcode steady in the frame.", "ok");
+  const openBtn = $("btnOpenScanner");
+  if (openBtn) openBtn.disabled = true;
 
-  // decodeFromVideoDevice opens a *second* getUserMedia stream (often “wrong” vs preview).
-  // decodeFromVideoElement scans the same stream already shown in #previewVideo.
-  barcodeReader
-    .decodeFromVideoElement(previewVideo, (result, err) => {
-      if (!barcodeScanning) return;
-      if (result) {
-        const text = result.getText();
-        const digits = text.replace(/\s/g, "");
-        fieldBarcode.value = digits;
-        stopBarcodeScan();
-        $("btnScanBarcode").disabled = false;
-        setCamStatus("Barcode read: " + digits + " — looking up…", "ok");
-        void applyBarcodeLookup(digits);
-      }
-    })
-    .catch((e) => {
-      if (!barcodeScanning) return;
-      setCamStatus("Scanner failed: " + (e?.message || String(e)), "error");
-      stopBarcodeScan();
-      $("btnScanBarcode").disabled = false;
-    });
+  if (useFullscreen) {
+    document.body.classList.add("scanner-focus");
+    setScanHudVisible(true);
+    refreshTorchButton();
+  }
+
+  const native = await runNativeBarcodeLoop();
+  if (!barcodeScanning) {
+    return;
+  }
+  if (native.found) {
+    return;
+  }
+  if (native.ranNative && native.userStopped) {
+    return;
+  }
+
+  setCamStatus("Falling back to ZXing… same preview stream.", "ok");
+  startZxingBarcodeScan();
+}
+
+async function openTinScanner() {
+  if (!window.isSecureContext) {
+    setCamStatus("Camera needs https:// or http://localhost.", "error");
+    return;
+  }
+  if (!mediaStream) {
+    await startCamera();
+  }
+  if (!mediaStream) return;
+  await startBarcodeEngine({ useFullscreen: true });
+}
+
+
+function startBarcodeScan() {
+  void startBarcodeEngine({ useFullscreen: false });
 }
 
 /**
@@ -576,6 +719,18 @@ function wire() {
   $("btnStopCam").addEventListener("click", stopCamera);
   $("btnScanBarcode").addEventListener("click", startBarcodeScan);
   $("btnStopBarcode").addEventListener("click", stopBarcodeScan);
+  const openBtn = $("btnOpenScanner");
+  if (openBtn) openBtn.addEventListener("click", () => void openTinScanner());
+  const closeHud = $("btnScanClose");
+  if (closeHud) closeHud.addEventListener("click", () => stopBarcodeScan());
+  const torchBtn = $("btnTorch");
+  if (torchBtn) {
+    torchBtn.addEventListener("click", () => {
+      torchOn = !torchOn;
+      applyTorch(torchOn);
+      refreshTorchButton();
+    });
+  }
   $("btnLookupUpc").addEventListener("click", () => {
     void applyBarcodeLookup(fieldBarcode.value.trim());
   });
