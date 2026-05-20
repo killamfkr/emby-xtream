@@ -22,6 +22,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Capacitor 7 / AGP 8.7 compiles with Java 21; ubuntu-latest default JDK is older.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

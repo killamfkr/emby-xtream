@@ -25,7 +25,7 @@ On GitHub, run the workflow **“Cellar Scanner APK”** (or push a change under
 
 ### Local build
 
-1. Install [Android Studio](https://developer.android.com/studio) (includes the Android SDK).
+1. Install **JDK 21** (e.g. [Eclipse Temurin](https://adoptium.net/)) and [Android Studio](https://developer.android.com/studio) (includes the Android SDK).
 2. From the `cellar-scanner` folder:
 
    ```bash
