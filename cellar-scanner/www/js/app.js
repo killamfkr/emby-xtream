@@ -244,7 +244,8 @@ function startBarcodeScan() {
   }
 
   stopBarcodeScan();
-  barcodeReader = new BrowserMultiFormatReader({
+  // Constructor signature is (hintsMap, options) — do not pass options as the first argument.
+  barcodeReader = new BrowserMultiFormatReader(undefined, {
     tryPlayVideoTimeout: 9000,
     delayBetweenScanAttempts: 75,
   });
@@ -252,6 +253,7 @@ function startBarcodeScan() {
   videoWrap.classList.add("scanning");
   $("btnStopBarcode").disabled = false;
   $("btnScanBarcode").disabled = true;
+  setCamStatus("Scanning… hold the barcode steady in the frame.", "ok");
 
   // decodeFromVideoDevice opens a *second* getUserMedia stream (often “wrong” vs preview).
   // decodeFromVideoElement scans the same stream already shown in #previewVideo.
