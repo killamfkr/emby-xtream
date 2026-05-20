@@ -76,6 +76,10 @@ Rows are saved in **localStorage** on this browser until you clear them.
 
 If your **RESTORE BACKUP** screen expects different names, rename columns in a spreadsheet to match a backup you already exported from Tobacco Cellar (if available), or enter the data through the site’s forms.
 
+## UPC → blend (Open Food Facts)
+
+After a successful barcode read (or when you tap **Fill blend from UPC**), the app calls the public **Open Food Facts** API to pre-fill **empty** brand, blend, and tin-size fields when a product exists in that database. Coverage for niche **pipe tobacco** is spotty; treat suggestions as a starting point and correct them as needed.
+
 ## Technical notes
 
 - **Barcode**: [@zxing/browser](https://github.com/zxing-js/library) via [esm.sh](https://esm.sh) (network required on first load).

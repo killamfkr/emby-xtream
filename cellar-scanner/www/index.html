@@ -55,6 +55,12 @@
         </div>
         <label for="fieldBarcode">Barcode (editable)</label>
         <input type="text" id="fieldBarcode" inputmode="numeric" autocomplete="off" placeholder="e.g. 0634158091234" />
+        <div class="row" style="margin-top: 0.5rem">
+          <button type="button" id="btnLookupUpc">Fill blend from UPC</button>
+        </div>
+        <p style="margin: 0.6rem 0 0; font-size: 0.8rem; color: var(--muted)">
+          After a scan, we query <strong>Open Food Facts</strong> (free, global grocery database) to pre-fill empty brand / blend / size when a match exists. Many pipe tins are missing there — you can still edit everything and use “Fill blend from UPC” if you typed a code by hand.
+        </p>
       </section>
 
       <section class="panel" aria-labelledby="date-heading">

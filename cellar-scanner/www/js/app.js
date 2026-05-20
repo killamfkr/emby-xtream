@@ -233,6 +233,84 @@ function stopBarcodeScan() {
   $("btnStopBarcode").disabled = true;
 }
 
+/** In-memory cache for Open Food Facts responses (GTIN → product or null). */
+const offProductCache = new Map();
+
+function normalizeGtin(barcode) {
+  const d = String(barcode || "").replace(/\D/g, "");
+  if (d.length < 8) return "";
+  if (d.length === 12) return `0${d}`;
+  if (d.length > 14) return d.slice(0, 14);
+  return d;
+}
+
+function fillFromOffProduct(p) {
+  if (!p) return;
+  const trim = (s) => String(s || "").trim();
+
+  if (!fieldBrand.value.trim()) {
+    const b = trim(p.brands);
+    if (b) {
+      fieldBrand.value = b.split(/[,;·\/|]/)[0].trim();
+    } else if (Array.isArray(p.brands_tags) && p.brands_tags.length) {
+      const tag = String(p.brands_tags[0]);
+      const core = tag.replace(/^[a-z]{2}:/i, "").replace(/-/g, " ");
+      fieldBrand.value = core.replace(/\b\w/g, (ch) => ch.toUpperCase());
+    }
+  }
+
+  if (!fieldBlend.value.trim()) {
+    fieldBlend.value =
+      trim(p.product_name) ||
+      trim(p.generic_name) ||
+      trim(p.abbreviated_product_name) ||
+      "";
+  }
+
+  if (!fieldSize.value.trim()) {
+    const q = trim(p.quantity);
+    if (q) fieldSize.value = q;
+  }
+}
+
+async function applyBarcodeLookup(barcode) {
+  const code = normalizeGtin(barcode);
+  if (!code) {
+    setCamStatus("Enter at least 8 digits to look up a UPC/EAN.", "error");
+    return;
+  }
+  if (offProductCache.has(code)) {
+    const cached = offProductCache.get(code);
+    if (!cached) {
+      setCamStatus(`No Open Food Facts match for ${code}. Enter brand/blend manually.`, "ok");
+      return;
+    }
+    fillFromOffProduct(cached);
+    setCamStatus("Filled from cache — still verify, especially for pipe tobacco.", "ok");
+    return;
+  }
+
+  try {
+    const url = `https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`;
+    const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
+    if (!res.ok) {
+      setCamStatus(`UPC lookup failed (HTTP ${res.status}).`, "error");
+      return;
+    }
+    const data = await res.json();
+    if (data.status !== 1 || !data.product) {
+      offProductCache.set(code, null);
+      setCamStatus(`No Open Food Facts match for ${code}. Enter brand/blend manually.`, "ok");
+      return;
+    }
+    offProductCache.set(code, data.product);
+    fillFromOffProduct(data.product);
+    setCamStatus("Filled from Open Food Facts — verify (many pipe tins are not listed).", "ok");
+  } catch (e) {
+    setCamStatus("UPC lookup failed: " + (e?.message || String(e)), "error");
+  }
+}
+
 function startBarcodeScan() {
   if (!mediaStream) {
     setCamStatus("Start the camera first.", "error");
@@ -262,10 +340,12 @@ function startBarcodeScan() {
       if (!barcodeScanning) return;
       if (result) {
         const text = result.getText();
-        fieldBarcode.value = text.replace(/\s/g, "");
-        setCamStatus("Barcode read: " + text, "ok");
+        const digits = text.replace(/\s/g, "");
+        fieldBarcode.value = digits;
         stopBarcodeScan();
         $("btnScanBarcode").disabled = false;
+        setCamStatus("Barcode read: " + digits + " — looking up…", "ok");
+        void applyBarcodeLookup(digits);
       }
     })
     .catch((e) => {
@@ -496,6 +576,9 @@ function wire() {
   $("btnStopCam").addEventListener("click", stopCamera);
   $("btnScanBarcode").addEventListener("click", startBarcodeScan);
   $("btnStopBarcode").addEventListener("click", stopBarcodeScan);
+  $("btnLookupUpc").addEventListener("click", () => {
+    void applyBarcodeLookup(fieldBarcode.value.trim());
+  });
   $("btnOcrDate").addEventListener("click", captureStickerOcr);
   $("btnAddRow").addEventListener("click", addRow);
   $("btnClearForm").addEventListener("click", clearForm);
