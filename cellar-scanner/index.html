@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#b8860b" />
+    <meta
+      name="description"
+      content="Scan pipe tobacco tin barcodes and date stickers, build a cellar list, export CSV for Tobacco Cellar and spreadsheets."
+    />
+    <title>Cellar Scanner — pipe tobacco tins</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;1,9..40,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Cellar Scanner</h1>
+      <p>
+        Camera barcode read and date-sticker OCR, then export CSV for
+        <a href="http://www.tobaccocellar.com/" rel="noopener">Tobacco Cellar</a>
+        or any spreadsheet.
+      </p>
+    </header>
+
+    <main>
+      <section class="panel" aria-labelledby="cam-heading">
+        <h2 id="cam-heading">Camera</h2>
+        <div id="videoWrap">
+          <video id="previewVideo" playsinline muted></video>
+        </div>
+        <div class="row">
+          <label class="sr-only" for="cameraSelect">Camera</label>
+          <select id="cameraSelect" aria-label="Choose camera"></select>
+          <button type="button" id="btnStartCam" class="primary">Start camera</button>
+          <button type="button" id="btnStopCam">Stop camera</button>
+        </div>
+        <p id="camStatus" class="status" role="status"></p>
+      </section>
+
+      <section class="panel" aria-labelledby="barcode-heading">
+        <h2 id="barcode-heading">Tin barcode (UPC / EAN)</h2>
+        <p style="margin: 0 0 0.5rem; font-size: 0.875rem; color: var(--muted)">
+          Point the tin so the barcode fills the gold frame, then start scanning. Many blends use a standard retail barcode on the bottom or side.
+        </p>
+        <div class="row">
+          <button type="button" id="btnScanBarcode" class="primary" disabled>Scan barcode</button>
+          <button type="button" id="btnStopBarcode" disabled>Stop scanning</button>
+        </div>
+        <label for="fieldBarcode">Barcode (editable)</label>
+        <input type="text" id="fieldBarcode" inputmode="numeric" autocomplete="off" placeholder="e.g. 0634158091234" />
+      </section>
+
+      <section class="panel" aria-labelledby="date-heading">
+        <h2 id="date-heading">Manufacture / date sticker</h2>
+        <p style="margin: 0 0 0.5rem; font-size: 0.875rem; color: var(--muted)">
+          Frame the printed date or batch sticker, then capture. OCR is best in good light; tap a suggested date or type your own.
+        </p>
+        <div class="row">
+          <button type="button" id="btnOcrDate" class="primary" disabled>Capture &amp; read sticker</button>
+        </div>
+        <div id="ocrProgress" class="status" aria-live="polite"></div>
+        <div id="dateCandidates" class="candidates" aria-label="Detected date strings"></div>
+        <label for="fieldMfgDate">Manufacture / tin date (ISO yyyy-mm-dd or any label you use)</label>
+        <input type="text" id="fieldMfgDate" autocomplete="off" placeholder="e.g. 2024-03-15 or Mar 2024" />
+      </section>
+
+      <section class="panel" aria-labelledby="blend-heading">
+        <h2 id="blend-heading">Blend details</h2>
+        <div class="grid two">
+          <div>
+            <label for="fieldBrand">Brand</label>
+            <input type="text" id="fieldBrand" autocomplete="off" placeholder="Cornell &amp; Diehl" />
+          </div>
+          <div>
+            <label for="fieldBlend">Blend name</label>
+            <input type="text" id="fieldBlend" autocomplete="off" placeholder="Briar Fox" />
+          </div>
+          <div>
+            <label for="fieldQty">Quantity (tins / jars)</label>
+            <input type="number" id="fieldQty" min="1" step="1" value="1" />
+          </div>
+          <div>
+            <label for="fieldSize">Tin size (optional)</label>
+            <input type="text" id="fieldSize" autocomplete="off" placeholder="2 oz, 50g …" />
+          </div>
+        </div>
+        <label for="fieldNotes" style="margin-top: 0.65rem; display: block">Notes</label>
+        <textarea id="fieldNotes" placeholder="Bulk code, shop, price…"></textarea>
+        <div class="row" style="margin-top: 1rem">
+          <button type="button" id="btnAddRow" class="primary">Add to cellar list</button>
+          <button type="button" id="btnClearForm">Clear form</button>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="list-heading">
+        <h2 id="list-heading">Cellar list</h2>
+        <div class="row" style="margin-bottom: 0.75rem">
+          <button type="button" id="btnExportCsv" class="primary">Download CSV</button>
+          <button type="button" id="btnClearAll" class="danger">Remove all rows</button>
+        </div>
+        <div style="overflow-x: auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Brand</th>
+                <th>Blend</th>
+                <th>Barcode</th>
+                <th>Date</th>
+                <th>Qty</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="cellarBody"></tbody>
+          </table>
+        </div>
+        <p id="emptyHint" class="status">No tins yet — scan or type, then “Add to cellar list”.</p>
+      </section>
+    </main>
+
+    <footer>
+      Runs in your browser; camera frames stay on-device until you export CSV. ZXing and Tesseract load from a CDN on first use.
+      See <code>README.md</code> in this folder. Companion:
+      <a href="https://github.com/killamfkr/Cellar-loader" rel="noopener">Cellar-loader</a>
+    </footer>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
