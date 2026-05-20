@@ -4,16 +4,50 @@ Small **browser app** for logging **pipe tobacco tins** while you are in front o
 
 This folder is meant to live alongside or inside **[Cellar-loader](https://github.com/killamfkr/Cellar-loader)** (that GitHub repo is currently empty; you can copy these files there or host them from this repository).
 
-## How to run
+## How to run (web)
 
 You need a **local or HTTPS URL** (mobile browsers block camera on plain `file://`).
 
 ```bash
-cd cellar-scanner
+cd cellar-scanner/www
 python3 -m http.server 8765
 ```
 
 Then open `http://localhost:8765` on the same machine, or use your LAN IP on a phone.
+
+## Android APK (Capacitor)
+
+The same UI is wrapped with **[Capacitor](https://capacitorjs.com/)** so you can install it as an Android app (`applicationId`: `com.killamfkr.cellarscanner`).
+
+### CI build (easiest)
+
+On GitHub, run the workflow **“Cellar Scanner APK”** (or push a change under `cellar-scanner/`). Download the **`cellar-scanner-debug-apk`** artifact — that file is **`app-debug.apk`**, ready to sideload (debug-signed).
+
+### Local build
+
+1. Install [Android Studio](https://developer.android.com/studio) (includes the Android SDK).
+2. From the `cellar-scanner` folder:
+
+   ```bash
+   npm ci
+   npx cap sync android
+   ```
+
+3. Open the Android project and build:
+
+   ```bash
+   npx cap open android
+   ```
+
+   In Android Studio: **Build → Build Bundle(s) / APK(s) → Build APK(s)**. The debug APK is under `android/app/build/outputs/apk/debug/`.
+
+   Or from a shell (with `ANDROID_HOME` set by Studio’s “SDK Manager”):
+
+   ```bash
+   npm run android:debug
+   ```
+
+Release builds for Play Store need your own signing key and store listing; this repo only automates a **debug** APK for personal use.
 
 ## Workflow
 
@@ -55,4 +89,4 @@ If your **RESTORE BACKUP** screen expects different names, rename columns in a s
 
 ## License
 
-Same as the parent repository unless you place only this folder elsewhere — then apply MIT or your choice for this subtree only.
+MIT — see `package.json` and the repository root license where applicable.
