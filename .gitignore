@@ -56,3 +56,6 @@ tests/e2e/playwright-report/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Nested clone for https://github.com/killamfkr/Cellar-loader (see CELLAR_LOADER_GITHUB.md)
+/Cellar-loader/
