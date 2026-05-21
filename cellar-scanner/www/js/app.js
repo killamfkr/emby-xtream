@@ -23,12 +23,15 @@ const cellarBody = $("cellarBody");
 const emptyHint = $("emptyHint");
 const ocrProgress = $("ocrProgress");
 const dateCandidates = $("dateCandidates");
+const cellarBarcodeMatches = $("cellarBarcodeMatches");
 
 let torchOn = false;
 
 let mediaStream = null;
 let barcodeReader = null;
 let barcodeScanning = false;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let cellarMatchTimer = null;
 
 const STORAGE_KEY = "cellar-scanner-rows-v1";
 
@@ -294,6 +297,72 @@ function normalizeGtin(barcode) {
   return d;
 }
 
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function findCellarRowsByNormalizedBarcode(barcode) {
+  const code = normalizeGtin(barcode);
+  if (!code || code.length < 8) return [];
+  return rows.filter((r) => normalizeGtin(r.barcode) === code);
+}
+
+function renderCellarMatches() {
+  const el = cellarBarcodeMatches;
+  if (!el) return;
+  const matches = findCellarRowsByNormalizedBarcode(fieldBarcode.value.trim());
+  if (!matches.length) {
+    el.setAttribute("hidden", "");
+    el.innerHTML = "";
+    return;
+  }
+  el.removeAttribute("hidden");
+  const parts = matches.map((r) => {
+    const qty = Math.max(1, parseInt(String(r.qty), 10) || 1);
+    const date = (r.mfgDate || "").trim();
+    const size = (r.size || "").trim();
+    const notes = (r.notes || "").trim();
+    const bits = [`qty ${qty}`];
+    if (date) bits.push(date);
+    if (size) bits.push(size);
+    const sub = notes ? `${bits.join(" · ")} — ${notes}` : bits.join(" · ");
+    return `<div class="cellar-match-card" role="listitem">
+      <div class="cellar-match-card__meta"><strong>${escapeHtml(r.brand)}</strong> — <strong>${escapeHtml(r.blend)}</strong><span class="cellar-match-card__sub">${escapeHtml(sub)}</span></div>
+      <button type="button" class="primary" data-apply-cellar="${escapeHtml(r.id)}">Use this tin</button>
+    </div>`;
+  });
+  el.innerHTML = `<p class="cellar-matches__title font-serif">Same code in your list</p>
+    <p class="cellar-matches__lede">These rows use the same normalized UPC/EAN. Tap <strong>Use this tin</strong> to copy brand, blend, size, notes, and quantity from that row. Adjust the date if this is a new tin.</p>
+    <div class="cellar-matches__list" role="list">${parts.join("")}</div>`;
+}
+
+function applyCellarRowToForm(id) {
+  const r = rows.find((x) => x.id === id);
+  if (!r) return;
+  fieldBrand.value = r.brand || "";
+  fieldBlend.value = r.blend || "";
+  fieldSize.value = r.size || "";
+  fieldNotes.value = r.notes || "";
+  if (!fieldMfgDate.value.trim() && r.mfgDate) {
+    fieldMfgDate.value = r.mfgDate;
+  }
+  fieldQty.value = String(Math.max(1, parseInt(String(r.qty), 10) || 1));
+  setCamStatus("Applied from your cellar list — update date or qty if needed, then add.", "ok");
+  fieldBlend.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function scheduleCellarMatchRefresh() {
+  if (cellarMatchTimer) clearTimeout(cellarMatchTimer);
+  cellarMatchTimer = setTimeout(() => {
+    cellarMatchTimer = null;
+    renderCellarMatches();
+  }, 250);
+}
+
 function fillFromOffProduct(p) {
   if (!p) return;
   const trim = (s) => String(s || "").trim();
@@ -324,40 +393,44 @@ function fillFromOffProduct(p) {
 }
 
 async function applyBarcodeLookup(barcode) {
-  const code = normalizeGtin(barcode);
-  if (!code) {
-    setCamStatus("Enter at least 8 digits to look up a UPC/EAN.", "error");
-    return;
-  }
-  if (offProductCache.has(code)) {
-    const cached = offProductCache.get(code);
-    if (!cached) {
-      setCamStatus(`No Open Food Facts match for ${code}. Enter brand/blend manually.`, "ok");
-      return;
-    }
-    fillFromOffProduct(cached);
-    setCamStatus("Filled from cache — still verify, especially for pipe tobacco.", "ok");
-    return;
-  }
-
   try {
-    const url = `https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`;
-    const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
-    if (!res.ok) {
-      setCamStatus(`UPC lookup failed (HTTP ${res.status}).`, "error");
+    const code = normalizeGtin(barcode);
+    if (!code) {
+      setCamStatus("Enter at least 8 digits to look up a UPC/EAN.", "error");
       return;
     }
-    const data = await res.json();
-    if (data.status !== 1 || !data.product) {
-      offProductCache.set(code, null);
-      setCamStatus(`No Open Food Facts match for ${code}. Enter brand/blend manually.`, "ok");
+    if (offProductCache.has(code)) {
+      const cached = offProductCache.get(code);
+      if (!cached) {
+        setCamStatus(`No Open Food Facts match for ${code}. Enter brand/blend manually.`, "ok");
+        return;
+      }
+      fillFromOffProduct(cached);
+      setCamStatus("Filled from cache — still verify, especially for pipe tobacco.", "ok");
       return;
     }
-    offProductCache.set(code, data.product);
-    fillFromOffProduct(data.product);
-    setCamStatus("Filled from Open Food Facts — verify (many pipe tins are not listed).", "ok");
-  } catch (e) {
-    setCamStatus("UPC lookup failed: " + (e?.message || String(e)), "error");
+
+    try {
+      const url = `https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`;
+      const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" } });
+      if (!res.ok) {
+        setCamStatus(`UPC lookup failed (HTTP ${res.status}).`, "error");
+        return;
+      }
+      const data = await res.json();
+      if (data.status !== 1 || !data.product) {
+        offProductCache.set(code, null);
+        setCamStatus(`No Open Food Facts match for ${code}. Enter brand/blend manually.`, "ok");
+        return;
+      }
+      offProductCache.set(code, data.product);
+      fillFromOffProduct(data.product);
+      setCamStatus("Filled from Open Food Facts — verify (many pipe tins are not listed).", "ok");
+    } catch (e) {
+      setCamStatus("UPC lookup failed: " + (e?.message || String(e)), "error");
+    }
+  } finally {
+    renderCellarMatches();
   }
 }
 
@@ -678,14 +751,6 @@ function renderTable() {
   emptyHint.style.display = rows.length ? "none" : "block";
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 function addRow() {
   const qty = Math.max(1, parseInt(fieldQty.value, 10) || 1);
   rows.push({
@@ -700,6 +765,7 @@ function addRow() {
   });
   saveRows();
   renderTable();
+  renderCellarMatches();
 }
 
 function clearForm() {
@@ -712,6 +778,7 @@ function clearForm() {
   fieldNotes.value = "";
   dateCandidates.innerHTML = "";
   ocrProgress.textContent = "";
+  renderCellarMatches();
 }
 
 function wire() {
@@ -734,6 +801,17 @@ function wire() {
   $("btnLookupUpc").addEventListener("click", () => {
     void applyBarcodeLookup(fieldBarcode.value.trim());
   });
+  fieldBarcode.addEventListener("input", scheduleCellarMatchRefresh);
+  if (cellarBarcodeMatches) {
+    cellarBarcodeMatches.addEventListener("click", (ev) => {
+      const t = ev.target;
+      if (!(t instanceof Element)) return;
+      const btn = t.closest("[data-apply-cellar]");
+      if (!(btn instanceof HTMLElement)) return;
+      const id = btn.dataset.applyCellar;
+      if (id) applyCellarRowToForm(id);
+    });
+  }
   $("btnOcrDate").addEventListener("click", captureStickerOcr);
   $("btnAddRow").addEventListener("click", addRow);
   $("btnClearForm").addEventListener("click", clearForm);
@@ -744,6 +822,7 @@ function wire() {
       rows = [];
       saveRows();
       renderTable();
+      renderCellarMatches();
     }
   });
 
@@ -753,11 +832,13 @@ function wire() {
       rows = rows.filter((r) => r.id !== t.dataset.del);
       saveRows();
       renderTable();
+      renderCellarMatches();
     }
   });
 }
 
 loadRows();
 renderTable();
+renderCellarMatches();
 wire();
 populateCameras();

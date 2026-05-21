@@ -269,6 +269,73 @@ button:disabled {
   padding: 0.35rem 0.6rem;
 }
 
+.cellar-matches {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.cellar-matches[hidden] {
+  display: none !important;
+}
+
+.cellar-matches__title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.cellar-matches__lede {
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.cellar-matches__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.cellar-match-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: calc(var(--radius) - 2px);
+  border: 1px solid var(--border);
+  background: rgba(10, 9, 7, 0.35);
+}
+
+.cellar-match-card__meta {
+  font-size: 0.82rem;
+  line-height: 1.35;
+  min-width: 0;
+}
+
+.cellar-match-card__meta strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cellar-match-card__sub {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.cellar-match-card .primary {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

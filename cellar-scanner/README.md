@@ -80,6 +80,8 @@ If your **RESTORE BACKUP** screen expects different names, rename columns in a s
 
 After a successful barcode read (or when you tap **Fill blend from UPC**), the app calls the public **Open Food Facts** API to pre-fill **empty** brand, blend, and tin-size fields when a product exists in that database. Coverage for niche **pipe tobacco** is spotty; treat suggestions as a starting point and correct them as needed.
 
+If you already logged that UPC in **this app’s cellar list** (same device), a **Same code in your list** panel appears under the barcode field. Tap **Use this tin** to copy brand, blend, size, notes, and quantity from that saved row so you can align the Open Food Facts guess with what you actually cellared, then adjust date or count and add again.
+
 ## Technical notes
 
 - **Barcode**: when the browser exposes **`BarcodeDetector`** (common on Chromium/Android), scanning runs on that API first for speed; after a short timeout with no decode, the app falls back to [@zxing/browser](https://github.com/zxing-js/library) on the **same** `<video>` element via [esm.sh](https://esm.sh) (network required on first load). If `BarcodeDetector` is missing, ZXing is used immediately.
