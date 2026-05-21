@@ -37,6 +37,10 @@ docs/play-timing-analysis.md
 # Screenshots (scratch reference images)
 *.png
 !Emby.Xtream.Plugin/thumb.png
+# Android launcher mipmaps (root *.png would otherwise skip them; CI needs these for API < 26 fallbacks)
+!cellar-scanner/android/app/src/main/res/mipmap-*/ic_launcher.png
+!cellar-scanner/android/app/src/main/res/mipmap-*/ic_launcher_round.png
+!cellar-scanner/android/app/src/main/res/mipmap-*/ic_launcher_foreground.png
 
 # Bug logs (local only)
 logs/

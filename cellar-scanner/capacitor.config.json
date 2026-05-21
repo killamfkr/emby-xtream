@@ -1,0 +1,8 @@
+{
+  "appId": "com.killamfkr.cellarscanner",
+  "appName": "Cellar Scanner",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}

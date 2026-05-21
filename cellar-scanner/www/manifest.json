@@ -1,0 +1,11 @@
+{
+  "name": "Cellar Scanner — pipe tobacco tin capture",
+  "short_name": "Cellar Scanner",
+  "description": "Scan tin barcodes and date stickers, export CSV for Tobacco Cellar and other trackers.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#141418",
+  "theme_color": "#b8860b"
+}

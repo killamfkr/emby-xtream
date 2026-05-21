@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0907" />
+    <meta
+      name="description"
+      content="Pipe tobacco tin scanner — UPC/EAN, date sticker OCR, cellar list and CSV export. Camera-first intake inspired by modern cellar apps."
+    />
+    <title>Cellar Scanner — tin intake</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+    <!-- Resolves @capacitor/core for lazy-loaded @capacitor/browser (Chrome Custom Tabs on Android). -->
+    <script type="importmap">
+      {
+        "imports": {
+          "@capacitor/core": "https://cdn.jsdelivr.net/npm/@capacitor/core@7.6.5/dist/index.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-header__brand">
+        <h1>Cellar Scanner</h1>
+        <p class="site-header__tag">Tin intake · camera-first cellar logging</p>
+      </div>
+      <p class="site-header__lede">
+        Scan a <strong>UPC/EAN</strong>, read a <strong>date sticker</strong>, then export CSV for
+        <a href="http://www.tobaccocellar.com/" rel="noopener">Tobacco Cellar</a> or any sheet. UI is tuned like modern
+        pipe apps (e.g. <a href="https://thepiper.ambivrt.com/" rel="noopener">ThePiper</a>) — this project is
+        <strong>not affiliated</strong>; it only borrows the “open camera, grab a tin” flow.
+      </p>
+    </header>
+
+    <main>
+      <section class="panel hero-panel" aria-labelledby="scan-heading">
+        <h2 id="scan-heading" class="font-serif">Scan a tin</h2>
+        <p class="lede">
+          Opens a <strong>fullscreen viewfinder</strong> on your phone. We use the browser’s
+          <strong>native barcode engine</strong> when available (fast on Chrome/Android), then fall back to ZXing on other
+          browsers.
+        </p>
+        <button type="button" id="btnOpenScanner" class="btn-hero primary" disabled>Open tin scanner</button>
+        <p id="camStatus" class="status" role="status"></p>
+
+        <div id="videoShell" class="video-shell">
+          <div id="videoWrap">
+            <video id="previewVideo" playsinline muted></video>
+          </div>
+          <div class="camera-toolbar">
+            <label class="sr-only" for="cameraSelect">Camera</label>
+            <select id="cameraSelect" aria-label="Choose camera"></select>
+            <button type="button" id="btnStartCam" class="primary">Start preview</button>
+            <button type="button" id="btnStopCam">Stop preview</button>
+          </div>
+        </div>
+
+        <div class="inline-actions">
+          <button type="button" id="btnScanBarcode" class="primary" disabled>Scan barcode (inline)</button>
+          <button type="button" id="btnStopBarcode" disabled>Stop scanning</button>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="barcode-heading">
+        <h2 id="barcode-heading" class="font-serif">Barcode &amp; lookup</h2>
+        <label for="fieldBarcode">Digits (editable)</label>
+        <input type="text" id="fieldBarcode" inputmode="numeric" autocomplete="off" placeholder="e.g. 0634158091234" />
+        <div class="row" style="margin-top: 0.5rem">
+          <button type="button" id="btnLookupUpc">Fill blend from UPC</button>
+        </div>
+        <div class="row" style="margin-top: 0.5rem">
+          <button type="button" id="btnWebLookupGoogle">Look up tin (web)</button>
+          <button type="button" id="btnWebLookupPipeTool">Pipe Tool (web)</button>
+        </div>
+        <p class="fineprint">
+          After a read we query <strong>Open Food Facts</strong> to pre-fill empty brand / blend / size when a grocery
+          listing exists — many pipe tins are missing; verify or edit.
+          <strong>Web lookup</strong> opens Google or The Pipe Tool in an <strong>in-app browser</strong> on Android (Chrome Custom Tabs). There is no safe way to auto-read private pages — sign in if needed, then copy brand/blend back here.
+          If this UPC is already in <strong>your list below</strong>, matching rows appear here so you can reuse your own blend names.
+        </p>
+        <div id="cellarBarcodeMatches" class="cellar-matches" hidden aria-live="polite"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="date-heading">
+        <h2 id="date-heading" class="font-serif">Manufacture / date sticker</h2>
+        <p class="lede">
+          Frame the printed date or batch sticker, then capture. OCR likes bright, even light; tap a suggestion or type
+          your own.
+        </p>
+        <div class="row">
+          <button type="button" id="btnOcrDate" class="primary" disabled>Capture &amp; read sticker</button>
+        </div>
+        <div id="ocrProgress" class="status" aria-live="polite"></div>
+        <div id="dateCandidates" class="candidates" aria-label="Detected date strings"></div>
+        <label for="fieldMfgDate">Manufacture / tin date</label>
+        <input type="text" id="fieldMfgDate" autocomplete="off" placeholder="e.g. 2024-03-15 or Mar 2024" />
+      </section>
+
+      <section class="panel" aria-labelledby="blend-heading">
+        <h2 id="blend-heading" class="font-serif">Blend details</h2>
+        <div class="grid two">
+          <div>
+            <label for="fieldBrand">Brand</label>
+            <input type="text" id="fieldBrand" autocomplete="off" placeholder="Cornell &amp; Diehl" />
+          </div>
+          <div>
+            <label for="fieldBlend">Blend name</label>
+            <input type="text" id="fieldBlend" autocomplete="off" placeholder="Briar Fox" />
+          </div>
+          <div>
+            <label for="fieldQty">Quantity (tins / jars)</label>
+            <input type="number" id="fieldQty" min="1" step="1" value="1" />
+          </div>
+          <div>
+            <label for="fieldSize">Tin size (optional)</label>
+            <input type="text" id="fieldSize" autocomplete="off" placeholder="2 oz, 50g …" />
+          </div>
+        </div>
+        <label for="fieldNotes" style="margin-top: 0.65rem; display: block">Notes</label>
+        <textarea id="fieldNotes" placeholder="Bulk code, shop, price…"></textarea>
+        <div class="row" style="margin-top: 1rem">
+          <button type="button" id="btnAddRow" class="primary">Add to cellar list</button>
+          <button type="button" id="btnClearForm">Clear form</button>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="list-heading">
+        <h2 id="list-heading" class="font-serif">Cellar list</h2>
+        <div class="row" style="margin-bottom: 0.75rem">
+          <button type="button" id="btnExportCsv" class="primary">Download CSV</button>
+          <button type="button" id="btnExportPipeToolXml">Pipe Tool XML (form)</button>
+          <button type="button" id="btnClearAll" class="danger">Remove all rows</button>
+        </div>
+        <p class="fineprint">
+          <strong>The Pipe Tool</strong> (<a href="https://thepipetool.com/xml/" rel="noopener">Tobacco XML standard</a>) does
+          not publish a public barcode lookup API yet (see their 2024 roadmap). This button exports the
+          <strong>current form</strong> as one <code>Tobacco</code> XML document for import where their app supports it — same
+          fields as their sample (serial / UPC, brand, blend, weight, dates, qty).
+        </p>
+        <div style="overflow-x: auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Brand</th>
+                <th>Blend</th>
+                <th>Barcode</th>
+                <th>Date</th>
+                <th>Qty</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="cellarBody"></tbody>
+          </table>
+        </div>
+        <p id="emptyHint" class="status">No tins yet — scan or type, then “Add to cellar list”.</p>
+      </section>
+    </main>
+
+    <div id="scanHud" class="scan-hud" hidden>
+      <div class="scan-hud__bar">
+        <button type="button" id="btnScanClose" class="hud-btn">Close</button>
+        <p class="scan-hud__hint">Align the <strong>UPC/EAN</strong> inside the corners — hold steady.</p>
+        <button type="button" id="btnTorch" class="hud-btn" hidden>Light</button>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      Camera frames stay on-device until you export CSV. Native scanner when supported; otherwise ZXing. Tesseract loads
+      from a CDN. See <code>README.md</code> ·
+      <a href="https://github.com/killamfkr/Cellar-loader" rel="noopener">Cellar-loader</a>
+    </footer>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>

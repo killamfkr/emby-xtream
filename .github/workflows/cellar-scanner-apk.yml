@@ -1,0 +1,49 @@
+# Builds a debug APK for the Cellar Scanner Capacitor app (uploaded as a workflow artifact).
+name: Cellar Scanner APK
+
+on:
+  push:
+    paths:
+      - "cellar-scanner/**"
+      - ".github/workflows/cellar-scanner-apk.yml"
+  pull_request:
+    paths:
+      - "cellar-scanner/**"
+      - ".github/workflows/cellar-scanner-apk.yml"
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cellar-scanner
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Capacitor 7 / AGP 8.7 compiles with Java 21; ubuntu-latest default JDK is older.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: cellar-scanner/package-lock.json
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install JS dependencies and sync Capacitor
+        run: npm ci && npx cap sync android
+
+      - name: Assemble debug APK
+        run: cd android && ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cellar-scanner-debug-apk
+          path: cellar-scanner/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
