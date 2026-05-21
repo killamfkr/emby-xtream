@@ -363,6 +363,37 @@ function scheduleCellarMatchRefresh() {
   }, 250);
 }
 
+/** Lazy-load Capacitor Browser (Chrome Custom Tabs on Android; window.open fallback on web / errors). */
+async function openUrlInAppBrowser(url) {
+  try {
+    const { Browser } = await import(
+      "https://cdn.jsdelivr.net/npm/@capacitor/browser@7.0.5/dist/esm/index.js"
+    );
+    await Browser.open({ url, toolbarColor: "#1a1814" });
+  } catch {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
+function buildGoogleTinLookupUrl() {
+  const digits = String(fieldBarcode.value || "").replace(/\D/g, "");
+  const brand = fieldBrand.value.trim();
+  const blend = fieldBlend.value.trim();
+  const parts = ["pipe tobacco tin"];
+  if (digits.length >= 8) parts.push(digits);
+  if (brand) parts.push(brand);
+  if (blend) parts.push(blend);
+  return `https://www.google.com/search?q=${encodeURIComponent(parts.join(" "))}`;
+}
+
+function buildPipeToolWebLookupUrl() {
+  const brand = fieldBrand.value.trim();
+  const blend = fieldBlend.value.trim();
+  const q = [brand, blend].filter(Boolean).join(" ");
+  if (!q) return "https://thepipetool.com/";
+  return `https://www.google.com/search?q=${encodeURIComponent(`site:thepipetool.com ${q}`)}`;
+}
+
 function fillFromOffProduct(p) {
   if (!p) return;
   const trim = (s) => String(s || "").trim();
@@ -874,6 +905,10 @@ function wire() {
   $("btnLookupUpc").addEventListener("click", () => {
     void applyBarcodeLookup(fieldBarcode.value.trim());
   });
+  const btnWebG = $("btnWebLookupGoogle");
+  if (btnWebG) btnWebG.addEventListener("click", () => void openUrlInAppBrowser(buildGoogleTinLookupUrl()));
+  const btnWebP = $("btnWebLookupPipeTool");
+  if (btnWebP) btnWebP.addEventListener("click", () => void openUrlInAppBrowser(buildPipeToolWebLookupUrl()));
   fieldBarcode.addEventListener("input", scheduleCellarMatchRefresh);
   if (cellarBarcodeMatches) {
     cellarBarcodeMatches.addEventListener("click", (ev) => {

@@ -17,7 +17,8 @@ Then open `http://localhost:8765` on the same machine, or use your LAN IP on a p
 
 ## Android APK (Capacitor)
 
-The same UI is wrapped with **[Capacitor](https://capacitorjs.com/)** so you can install it as an Android app (`applicationId`: `com.killamfkr.cellarscanner`).
+The same UI is wrapped with **[Capacitor](https://capacitorjs.com/)** so you can install it as an Android app (`applicationId`: `com.killamfkr.cellarscanner`). The build includes **`@capacitor/browser`**: the **Look up tin (web)** and **Pipe Tool (web)** buttons open **Chrome Custom Tabs** (an in-app browser shell). That helps you search the open web or indexed Pipe Tool pages, but the app **does not** scrape or inject JavaScript into third-party sites to fill the form automatically (logins, terms of use, and page structure get in the way). Copy what you need and return to the scanner.
+
 
 ### CI build (easiest)
 

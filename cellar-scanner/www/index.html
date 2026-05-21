@@ -17,6 +17,14 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="css/styles.css" />
+    <!-- Resolves @capacitor/core for lazy-loaded @capacitor/browser (Chrome Custom Tabs on Android). -->
+    <script type="importmap">
+      {
+        "imports": {
+          "@capacitor/core": "https://cdn.jsdelivr.net/npm/@capacitor/core@7.6.5/dist/index.js"
+        }
+      }
+    </script>
   </head>
   <body>
     <header class="site-header">
@@ -68,9 +76,14 @@
         <div class="row" style="margin-top: 0.5rem">
           <button type="button" id="btnLookupUpc">Fill blend from UPC</button>
         </div>
+        <div class="row" style="margin-top: 0.5rem">
+          <button type="button" id="btnWebLookupGoogle">Look up tin (web)</button>
+          <button type="button" id="btnWebLookupPipeTool">Pipe Tool (web)</button>
+        </div>
         <p class="fineprint">
           After a read we query <strong>Open Food Facts</strong> to pre-fill empty brand / blend / size when a grocery
           listing exists — many pipe tins are missing; verify or edit.
+          <strong>Web lookup</strong> opens Google or The Pipe Tool in an <strong>in-app browser</strong> on Android (Chrome Custom Tabs). There is no safe way to auto-read private pages — sign in if needed, then copy brand/blend back here.
           If this UPC is already in <strong>your list below</strong>, matching rows appear here so you can reuse your own blend names.
         </p>
         <div id="cellarBarcodeMatches" class="cellar-matches" hidden aria-live="polite"></div>

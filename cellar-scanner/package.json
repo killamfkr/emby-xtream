@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@capacitor/android": "7.6.5",
+    "@capacitor/browser": "7.0.5",
     "@capacitor/core": "7.6.5"
   },
   "devDependencies": {
