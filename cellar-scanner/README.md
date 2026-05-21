@@ -94,6 +94,13 @@ If you already logged that UPC in **this app’s cellar list** (same device), a 
 - **`OverconstrainedError`** almost always means **video constraints** could not be met (for example, “rear camera only” on a device with no back camera, or a stale camera id after unplugging a USB webcam). The app now relaxes constraints automatically; if it still fails, pick a different **Camera** in the dropdown or reload the page.
 - **HTTPS / secure context**: Mobile browsers (and the Android WebView) only expose `getUserMedia` on **https://** or **http://localhost**. Plain `http://192.168.x.x` is often blocked. The old message that blamed every failure on HTTPS was misleading for `OverconstrainedError`.
 
+
+
+## The Pipe Tool (thepipetool.com)
+
+**There is no published public HTTP API** from The Pipe Tool for live barcode lookup as of their [Fall 2024 update](https://www.thepipetool.com/blog/2024/10/fall-2024-update-a-look-into-2025/) — an API is on their roadmap (e.g. future TurboTin integration), not something this scanner can call reliably today.
+
+This app **does** support their documented **[Tobacco XML](https://thepipetool.com/xml/)** interchange: use **Pipe Tool XML (form)** under *Cellar list* to download a single `Tobacco` document built from the current fields (UPC in `SerialNumber`, brand, blend, tin size as `Weight`, quantity, dates, notes). Import behavior depends on their site’s current importer; bulk moves are still easiest via **Download CSV** and their spreadsheet tools if available.
 ## Limitations
 
 - Not every tin uses a standard barcode; some use only internal batch codes — use notes and manual fields.

@@ -123,8 +123,15 @@
         <h2 id="list-heading" class="font-serif">Cellar list</h2>
         <div class="row" style="margin-bottom: 0.75rem">
           <button type="button" id="btnExportCsv" class="primary">Download CSV</button>
+          <button type="button" id="btnExportPipeToolXml">Pipe Tool XML (form)</button>
           <button type="button" id="btnClearAll" class="danger">Remove all rows</button>
         </div>
+        <p class="fineprint">
+          <strong>The Pipe Tool</strong> (<a href="https://thepipetool.com/xml/" rel="noopener">Tobacco XML standard</a>) does
+          not publish a public barcode lookup API yet (see their 2024 roadmap). This button exports the
+          <strong>current form</strong> as one <code>Tobacco</code> XML document for import where their app supports it — same
+          fields as their sample (serial / UPC, brand, blend, weight, dates, qty).
+        </p>
         <div style="overflow-x: auto">
           <table>
             <thead>

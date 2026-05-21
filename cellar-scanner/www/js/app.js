@@ -734,6 +734,79 @@ function downloadCsv() {
   URL.revokeObjectURL(a.href);
 }
 
+/** The Pipe Tool (thepipetool.com) publishes a Tobacco XML interchange format; there is no documented public barcode JSON API yet. */
+function escapeXml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function canBuildPipeToolTobaccoXml(p) {
+  const serial = String(p.barcode || "").replace(/\D/g, "");
+  const brand = (p.brand || "").trim();
+  const blend = (p.blend || "").trim();
+  if (serial.length >= 8) return true;
+  if (brand && blend) return true;
+  return false;
+}
+
+/**
+ * One Tobacco-root document per https://thepipetool.com/xml/ (sample Tobacco XML).
+ * @param {{brand?:string,blend?:string,barcode?:string,mfgDate?:string,qty?:string|number,size?:string,notes?:string}} p
+ */
+function buildPipeToolTobaccoXml(p) {
+  if (!canBuildPipeToolTobaccoXml(p)) return null;
+  const brand = (p.brand || "").trim();
+  const blend = (p.blend || "").trim();
+  const serial = String(p.barcode || "").replace(/\D/g, "");
+  const lines = [];
+  lines.push('<?xml version="1.0" encoding="UTF-8"?>');
+  lines.push('<Tobacco xmlns="http://example.org/tobacco" version="1.0">');
+  if (brand) lines.push(`    <Brand>${escapeXml(brand)}</Brand>`);
+  if (blend) lines.push(`    <Blend>${escapeXml(blend)}</Blend>`);
+  const size = (p.size || "").trim();
+  if (size) lines.push(`    <Weight>${escapeXml(size)}</Weight>`);
+  lines.push("    <StorageType>Tin</StorageType>");
+  const qty = Math.max(1, parseInt(String(p.qty ?? "1"), 10) || 1);
+  lines.push(`    <StorageQty>${qty}</StorageQty>`);
+  if (serial.length >= 8) lines.push(`    <SerialNumber>${escapeXml(serial)}</SerialNumber>`);
+  const mfg = (p.mfgDate || "").trim();
+  if (mfg) lines.push(`    <ManufactureDate>${escapeXml(mfg)}</ManufactureDate>`);
+  lines.push("    <Status>cellared</Status>");
+  const notes = (p.notes || "").trim();
+  if (notes) lines.push(`    <Notes>${escapeXml(notes)}</Notes>`);
+  lines.push("</Tobacco>");
+  return lines.join("\n");
+}
+
+function downloadPipeToolXmlFromForm() {
+  const xml = buildPipeToolTobaccoXml({
+    brand: fieldBrand.value,
+    blend: fieldBlend.value,
+    barcode: fieldBarcode.value,
+    mfgDate: fieldMfgDate.value,
+    qty: fieldQty.value,
+    size: fieldSize.value,
+    notes: fieldNotes.value,
+  });
+  if (!xml) {
+    setCamStatus(
+      "Pipe Tool XML needs an 8+ digit barcode or both brand and blend filled in the form above.",
+      "error"
+    );
+    return;
+  }
+  const blob = new Blob([xml], { type: "application/xml;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `pipe-tool-tobacco-${new Date().toISOString().slice(0, 10)}.xml`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  setCamStatus("Downloaded Pipe Tool Tobacco XML from the current form.", "ok");
+}
+
 function renderTable() {
   cellarBody.innerHTML = "";
   rows.forEach((r) => {
@@ -816,6 +889,8 @@ function wire() {
   $("btnAddRow").addEventListener("click", addRow);
   $("btnClearForm").addEventListener("click", clearForm);
   $("btnExportCsv").addEventListener("click", downloadCsv);
+  const btnPtx = $("btnExportPipeToolXml");
+  if (btnPtx) btnPtx.addEventListener("click", downloadPipeToolXmlFromForm);
   $("btnClearAll").addEventListener("click", () => {
     if (!rows.length) return;
     if (confirm("Remove all rows from this device?")) {
